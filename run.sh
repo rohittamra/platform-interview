@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-trap 'popd' EXIT
+#trap 'popd' EXIT
 
 set -e
 
@@ -15,20 +15,20 @@ sudo chmod +x /usr/local/bin/docker-compose
 echo Installing terraform onto machine...
 mkdir -p "${HOME}/bin"
 sudo apt-get update && sudo apt-get install -y unzip jq
-pushd "${HOME}/bin"
+cd "${HOME}/bin"
 
 wget -q "https://releases.hashicorp.com/terraform/${terraform_version}/terraform_${terraform_version}_linux_${pro}.zip"
 unzip -q -o "terraform_${terraform_version}_linux_${pro}.zip"
 . "${HOME}/.profile"
-popd
-pushd /vagrant
+cd -
+cd /vagrant
 docker build ./services/account -t form3tech-oss/platformtest-account
 docker build ./services/gateway -t form3tech-oss/platformtest-gateway
 docker build ./services/payment -t form3tech-oss/platformtest-payment
 docker-compose up -d
-popd
+cd -
 echo Applying terraform script
-pushd /vagrant/tf
+cd /vagrant/tf
 terraform init -upgrade
 terraform apply -auto-approve
-popd
+cd -
