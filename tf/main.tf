@@ -13,6 +13,7 @@ terraform {
   }
 }
 
+########################ROHIT###############################
 provider "vault" {
   address = "http://localhost:8201"
   token   = "f23612cf-824d-4206-9e94-e31a6dc8ee8d"
@@ -58,6 +59,10 @@ resource "vault_auth_backend" "userpass_prod" {
   provider = vault.vault_prod
   type     = "userpass"
 }
+
+
+########################ROHIT###############################
+
 
 resource "vault_generic_secret" "account_development" {
   provider = vault.vault_dev
@@ -292,6 +297,10 @@ resource "vault_generic_endpoint" "payment_production" {
 EOT
 }
 
+
+########################ROHIT###############################
+
+
 resource "docker_container" "account_production" {
   image = "form3tech-oss/platformtest-account"
   name  = "account_production"
@@ -446,4 +455,14 @@ resource "docker_container" "frontend_development" {
   lifecycle {
     ignore_changes = all
   }
+}
+
+########################ROHIT###############################
+
+resource "docker_network" "vagrant_production"  {
+  name = "vagrant_production"
+}
+
+resource "docker_network" "vagrant_development"  {
+  name = "vagrant_development"
 }

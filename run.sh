@@ -35,4 +35,3 @@ echo Applying terraform script
 cd $current_dir/tf
 terraform init -upgrade
 terraform apply -auto-approve
-popd
