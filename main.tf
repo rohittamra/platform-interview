@@ -32,27 +32,32 @@ provider "vault" {
 }
 
 
+resource "vault_audit" "audit_dev" {
+  type     = "file"
+  provider = vault.vault_dev
 
-resource "vault_audit" "audit" {
- for_each = {
-         "dev" = vault.vault_dev,
-         "prod" = vault.vault_prod
- }
- type = "file"
- provider = each.value
-
- options = {
- file_path = "/vault/logs/audit"
- }
+  options = {
+    file_path = "/vault/logs/audit"
+  }
 }
 
-resource "vault_auth_backend" "userpass" {
- for_each = { 
-	"dev" = vault.vault_dev,
- 	"prod" = vault.vault_prod
- }
- type = "userpass"
- provider = each.value
+resource "vault_audit" "audit_prod" {
+  type     = "file"
+  provider = vault.vault_prod
+
+  options = {
+    file_path = "/vault/logs/audit"
+  }
+}
+
+resource "vault_auth_backend" "userpass_dev" {
+  type     = "userpass"
+  provider = vault.vault_dev
+}
+
+resource "vault_auth_backend" "userpass_prod" {
+  type     = "userpass"
+  provider = vault.vault_prod
 }
 
 #provider "vault" {
@@ -237,18 +242,17 @@ locals {
 }
 
 resource "docker_container" "containers" {
-  for_each = local.container_names
+  count = length(local.container_names)
 
-  image = local.container_images[each.key]
-  name  = local.container_names[each.key]
+  image = local.container_images[count.index]
+  name  = local.container_names[count.index]
 
-  ports = local.container_ports[each.key] != null ? [{
-    internal = local.container_ports[each.key]["internal"]
-    external = local.container_ports[each.key]["external"]
+  ports = local.container_ports[count.index] != null ? [{    internal = local.container_ports[count.index]["internal"]
+    external = local.container_ports[count.index]["external"]
   }] : []
 
   env = toset([
-    for k, v in local.container_env_vars[each.key] : "${k}=${v}"
+    for k, v in local.container_env_vars[count.index] : "${k}=${v}"
   ])
 
   networks_advanced {
@@ -259,6 +263,4 @@ resource "docker_container" "containers" {
     ignore_changes = all
   }
 }
-
-
 
