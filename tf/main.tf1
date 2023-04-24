@@ -191,76 +191,107 @@ variable "vault_credentials" {
   }
 }
 
+
 locals {
-  container_names = {
-    "account"   = "account_${var.environment}"
-    "gateway"   = "gateway_${var.environment}"
-    "payment"   = "payment_${var.environment}"
-    "frontend"  = "frontend_${var.environment}"
-  }
+  vault_address    = "http://vault-${var.environment}:8200"
+  network_name     = "vagrant_${var.environment}"
+  frontend_port    = var.environment == "production" ? 4081 : 4080
+  frontend_image   = var.environment == "production" ? "docker.io/nginx:1.22.0-alpine" : "docker.io/nginx:latest"
+}
 
-  container_images = {
-    "account"   = format(var.alpine_image, "account")
-    "gateway"   = format(var.alpine_image, "gateway")
-    "payment"   = format(var.alpine_image, "payment")
-    "frontend"  = var.nginx_image
-  }
+# Define microservices as a list of maps for each environment 
+locals {
+  microservices = [
+    {
+      name    = "account"
+      image   = "form3tech-oss/platformtest-account"
+      env     = [
+        "VAULT_ADDR=${local.vault_address}",
+        "VAULT_USERNAME=${local.microservice}-$${var.environment}",
+        "VAULT_PASSWORD=123-${local.microservice}-$${var.environment}",
+        "ENVIRONMENT=${var.environment}"
+      ]
+    },
+    {
+      name    = "gateway"
+      image   = "form3tech-oss/platformtest-gateway"
+      env     = [
+        "VAULT_ADDR=${local.vault_address}",
+        "VAULT_USERNAME=${local.microservice}-$${var.environment}",
+        "VAULT_PASSWORD=123-${local.microservice}-$${var.environment}",
+        "ENVIRONMENT=${var.environment}"
+      ]
+    },
+    {
+      name    = "payment"
+      image   = "form3tech-oss/platformtest-payment"
+      env     = [
+        "VAULT_ADDR=${local.vault_address}",
+        "VAULT_USERNAME=${local.microservice}-$${var.environment}",
+        "VAULT_PASSWORD=123-${local.microservice}-$${var.environment}",
+        "ENVIRONMENT=${var.environment}"
+      ]
+    }
+  ]
+}
 
-  container_ports = {
-    "account"   = null
-    "gateway"   = null
-    "payment"   = null
-    "frontend"  = {
+# Define resources for each microservice in each environment 
+resource "docker_container" "microservices" {
+  #for_each = {
+    for env in ["production", "development", "staging"] : env =>  {"hello"}
+      #{
+      #for service in local.microservices : "${service.name}_${env}" => {
+        #image = service.image
+        #name  = "${service.name}_${env}"
+
+        #env = service.env + [
+        #  "ENV_TYPE=${env}"
+        #]
+
+        #networks_advanced {
+        #  name = locals.network_name
+        #}
+
+        #lifecycle {
+        #  ignore_changes = all
+        #}
+      #}
+    #}
+  #}
+
+  dynamic "ports" {
+    for_each = var.environment == "production" ? [] : [1]
+
+    content {
       internal = 80
-      external = var.environment == "production" ? 4081 : 4080
-    }
-  }
-
-  container_env_vars = {
-    "account"   = {
-      VAULT_ADDR      = var.vault_address
-      VAULT_USERNAME  = format(var.vault_credentials["account"], var.environment)
-      VAULT_PASSWORD  = format(var.vault_credentials["account"], var.environment)
-      ENVIRONMENT     = var.environment
-    }
-    "gateway"   = {
-      VAULT_ADDR      = var.vault_address
-      VAULT_USERNAME  = format(var.vault_credentials["gateway"], var.environment)
-      VAULT_PASSWORD  = format(var.vault_credentials["gateway"], var.environment)
-      ENVIRONMENT     = var.environment
-    }
-    "payment"   = {
-      VAULT_ADDR      = var.vault_address
-      VAULT_USERNAME  = format(var.vault_credentials["payment"], var.environment)
-      VAULT_PASSWORD  = format(var.vault_credentials["payment"], var.environment)
-      ENVIRONMENT     = var.environment
-    }
-    "frontend"  = {
-      ENVIRONMENT     = var.environment
+      external = local.frontend_port
     }
   }
 }
 
-resource "docker_container" "containers" {
-  count = length(local.container_names)
+# Define resources for the frontend in each environment 
+resource "docker_container" "frontend" {
+  for_each = {
+    for env in ["production", "development", "staging"] : env => {
+      "${env}" => {
+        image = local.frontend_image
+        name  = "frontend_${env}"
 
-  image = local.container_images[count.index]
-  name  = local.container_names[count.index]
+        ports {
+          internal = 80
+          external = local.frontend_port
+        }
 
-  ports = local.container_ports[count.index] != null ? [{    internal = local.container_ports[count.index]["internal"]
-    external = local.container_ports[count.index]["external"]
-  }] : []
+        networks_advanced {
+          name = local.network_name
+        }
 
-  env = toset([
-    for k, v in local.container_env_vars[count.index] : "${k}=${v}"
-  ])
-
-  networks_advanced {
-    name = var.network_name
-  }
-
-  lifecycle {
-    ignore_changes = all
+        lifecycle {
+          ignore_changes = all
+        }
+      }
+    }
   }
 }
+
 
